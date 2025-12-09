@@ -15,7 +15,6 @@
         
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--bg-color); margin: 0; padding: 0; color: #333; line-height: 1.6; }
         
-        /* 顶部 Banner */
         .header {
             background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
             color: white; padding: 30px 20px; text-align: center;
@@ -27,12 +26,10 @@
 
         .container { max-width: 600px; margin: -20px auto 30px auto; padding: 0 15px; position: relative; z-index: 10; }
         
-        /* 卡片通用样式 */
         .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--card-shadow); border-top: 4px solid transparent; }
         .card-title { font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; display: flex; align-items: center; }
         .card-title::before { content: ''; display: inline-block; width: 4px; height: 18px; background-color: var(--primary-color); margin-right: 10px; border-radius: 2px; }
 
-        /* 表单样式 */
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #555; }
         .sub-label { font-size: 12px; color: #888; margin-bottom: 8px; font-weight: normal; }
@@ -43,7 +40,6 @@
         }
         input:focus { border-color: var(--accent-color); background: white; outline: none; }
 
-        /* 选项样式 */
         .radio-group-vertical { display: flex; flex-direction: column; gap: 10px; }
         .radio-option {
             display: flex; align-items: center; padding: 10px 15px; 
@@ -52,7 +48,6 @@
         .radio-option:hover { background-color: #f8fbff; border-color: var(--accent-color); }
         .radio-option input { margin-right: 12px; transform: scale(1.2); }
 
-        /* PHQ-15 题目样式 - 修复版 */
         .phq-item { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px dashed #eee; }
         .phq-item:last-child { border-bottom: none; }
         .phq-text { font-size: 16px; font-weight: 600; margin-bottom: 5px; }
@@ -64,7 +59,6 @@
             border-radius: 6px; font-size: 14px; cursor: pointer; background: white; color: #666;
             transition: all 0.2s ease;
         }
-        /* 选中状态 - 强制样式 */
         .phq-btn.active { 
             background-color: var(--primary-color) !important; 
             color: white !important; 
@@ -73,7 +67,6 @@
             box-shadow: 0 4px 6px rgba(0,86,179,0.2);
         }
 
-        /* 提交按钮 */
         .submit-btn {
             width: 100%; background: linear-gradient(to right, var(--primary-color), var(--accent-color));
             color: white; padding: 16px; border: none; border-radius: 30px; font-size: 18px; font-weight: bold;
@@ -81,7 +74,6 @@
         }
         .submit-btn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
 
-        /* 结果页 */
         #result-section { display: none; text-align: center; padding-top: 40px; }
         .score-circle {
             width: 120px; height: 120px; background: white; border-radius: 50%;
@@ -169,7 +161,7 @@
     </div>
 
     <button id="submit-btn" class="submit-btn" onclick="submitData()">提交评估</button>
-    <p id="status-msg" style="text-align: center; color: #999; font-size: 12px; margin-top: 15px;"></p>
+    <p id="status-msg" style="text-align: center; color: #e74c3c; font-size: 12px; margin-top: 15px; font-weight: bold;"></p>
 </div>
 
 <div class="container" id="result-section">
@@ -188,16 +180,24 @@
             <p id="res-interpret" style="margin-bottom: 0;">结果解读加载中...</p>
         </div>
         
-        <button class="submit-btn" onclick="location.reload()" style="background: #95a5a6; margin-top: 30px;">关闭 / 下一位</button>
+        <button class="submit-btn" onclick="location.reload()" style="background: #95a5a6; margin-top: 30px;">重新测评</button>
     </div>
 </div>
 
 <script>
     // ==========================================
-    // 第一步：先生成界面，防止JS报错导致页面空白
+    // ⚠️ 数据库配置区域
     // ==========================================
     
-    // PHQ-15 题目数据
+    // 1. Secret Key (Bmob后台复制的那串长的)
+    const SECRET_KEY = "这里填 Secret Key"; 
+    
+    // 2. API 安全码 (你自己手动设置的那个，比如 MyTest2024)
+    // 千万不要填 Application ID !!!
+    const API_KEY    = "这里填 API 安全码";
+
+    // ==========================================
+
     const phqQuestions = [
         { t: "1. 胃痛或腹痛", d: "包括胃胀、胃痉挛、隐痛等" },
         { t: "2. 背痛", d: "腰背部酸痛、僵硬" },
@@ -216,11 +216,10 @@
         { t: "15. 睡眠问题", d: "入睡困难、早醒或睡得过多" }
     ];
 
-    // 立即执行：渲染题目
+    // 渲染题目
     (function renderQuestions() {
         const listEl = document.getElementById('phq-list');
         if(!listEl) return;
-        
         phqQuestions.forEach((q, i) => {
             const div = document.createElement('div');
             div.className = 'phq-item';
@@ -238,42 +237,34 @@
         });
     })();
 
-    // 选中功能的逻辑
     function selectScore(qIndex, score, btnElement) {
         const group = document.getElementById(`q_group_${qIndex}`);
         const btns = group.getElementsByClassName('phq-btn');
-        // 移除其他按钮的高亮
         for(let b of btns) b.classList.remove('active');
-        // 激活当前按钮
         btnElement.classList.add('active');
-        // 记录分数
         document.getElementById(`val_${qIndex}`).value = score;
     }
 
-    // ==========================================
-    // 第二步：初始化数据库 (放在最后)
-    // ⚠️ 请在这里填入你的 Key
-    // ==========================================
-    const SECRET_KEY = "6b0b4b7f90b157fe";
-    const API_KEY    = "howstheweathertd";
-
+    // 数据库连接检测
     let isBmobReady = false;
-    try {
-        if(typeof Bmob !== 'undefined' && SECRET_KEY.length > 10) {
+    const statusMsg = document.getElementById('status-msg');
+
+    if(typeof Bmob === 'undefined') {
+        statusMsg.innerText = "❌ 错误：Bmob SDK 加载失败，请检查网络";
+    } else if(SECRET_KEY === "" || API_KEY === "") {
+        statusMsg.innerText = "⚠️ 提示：数据库 Key 未填，当前为【演示模式】(不保存数据)";
+    } else {
+        try {
+            // 初始化
             Bmob.initialize(SECRET_KEY, API_KEY);
             isBmobReady = true;
-            console.log("Bmob SDK loaded success.");
-        } else {
-            console.warn("Bmob Key 未填写或SDK加载失败");
-            document.getElementById('status-msg').innerText = "提示：数据库连接未配置，仅作演示模式";
+            console.log("SDK Init Success");
+        } catch(e) {
+            console.error(e);
+            statusMsg.innerText = "❌ 初始化报错: " + e.message;
         }
-    } catch(e) {
-        console.error("SDK Init Error:", e);
     }
 
-    // ==========================================
-    // 第三步：提交逻辑
-    // ==========================================
     function getRadioValue(name) {
         const radios = document.getElementsByName(name);
         for (let r of radios) { if (r.checked) return r.value; }
@@ -281,28 +272,23 @@
     }
 
     function submitData() {
-        // 1. 收集数据
         const name = document.getElementById('username').value.trim();
         const age = document.getElementById('age').value;
         const gender = document.getElementById('gender').value;
         const contact = document.getElementById('contact').value.trim();
-        
         const vasPain = getRadioValue('vas_pain');
         const vasDiagnosis = document.getElementById('vas_diagnosis').value;
         const trauma = getRadioValue('trauma');
 
-        // 验证必填
         if(!name || !age || !contact) { alert("请填写完整的个人信息（姓名、年龄、电话）"); return; }
         if(!vasPain || !vasDiagnosis || !trauma) { alert("请完成第2部分：专科病史筛查"); return; }
 
-        // 计算分数
         let totalScore = 0;
         let scoreDetails = [];
         for(let i=0; i<phqQuestions.length; i++) {
             const val = parseInt(document.getElementById(`val_${i}`).value);
             if(val === -1) { 
                 alert(`第3部分第 ${i+1} 题未作答`); 
-                // 滚动到该题位置
                 document.getElementById(`q_group_${i}`).scrollIntoView({behavior: "smooth", block: "center"});
                 return; 
             }
@@ -310,30 +296,24 @@
             scoreDetails.push(val);
         }
 
-        const btn = document.getElementById('submit-btn');
-        btn.innerText = "正在提交...";
-        btn.disabled = true;
-
         // 结果解读
         let level = "", interpret = "";
-        if (totalScore <= 4) { 
-            level = "无或轻微"; interpret = "躯体症状困扰极低，通常不需要临床干预。";
-        } else if (totalScore <= 9) { 
-            level = "轻度"; interpret = "存在轻度的躯体不适，建议保持良好的作息。";
-        } else if (totalScore <= 14) { 
-            level = "中度"; interpret = "存在中度的躯体症状困扰，可能会影响日常生活。";
-        } else { 
-            level = "重度"; interpret = "存在重度的躯体症状困扰，建议结合心理科会诊。";
-        }
+        if (totalScore <= 4) { level = "无或轻微"; interpret = "躯体症状困扰极低，通常不需要临床干预。"; } 
+        else if (totalScore <= 9) { level = "轻度"; interpret = "存在轻度的躯体不适，建议保持良好的作息。"; } 
+        else if (totalScore <= 14) { level = "中度"; interpret = "存在中度的躯体症状困扰，可能会影响日常生活。"; } 
+        else { level = "重度"; interpret = "存在重度的躯体症状困扰，建议结合心理科会诊。"; }
 
-        // 如果数据库没准备好，直接显示结果（防卡死）
+        // 如果数据库没准备好
         if(!isBmobReady) {
-            alert("注意：由于Key未配置或网络问题，数据将只在本地显示，无法保存到后台。");
+            alert("当前处于演示模式（或数据库连接失败），结果仅在本地显示。");
             showResultPage(name, totalScore, level, interpret);
             return;
         }
 
-        // 上传数据 (使用驼峰命名)
+        const btn = document.getElementById('submit-btn');
+        btn.innerText = "正在上传数据...";
+        btn.disabled = true;
+
         const query = Bmob.Query('VascularPHQ');
         query.set("name", name);
         query.set("age", parseInt(age));
@@ -349,8 +329,13 @@
         query.save().then(res => {
             showResultPage(name, totalScore, level, interpret);
         }).catch(err => {
-            console.error(err);
-            alert("数据保存失败，请检查网络。但您的评估结果如下：");
+            console.error("上传失败", err);
+            // 这里会弹出具体的错误信息
+            let errMsg = "未知错误";
+            if(err.code === 1001) errMsg = "域名被拦截，请配置白名单";
+            if(err.code === 401 || err.code === 404) errMsg = "Key填写错误或不匹配";
+            
+            alert(`数据保存失败 (错误代码: ${err.code} - ${errMsg})。\n但您的评估结果如下：`);
             showResultPage(name, totalScore, level, interpret);
         });
     }
@@ -359,7 +344,6 @@
         document.getElementById('main-form').style.display = 'none';
         document.querySelector('.header').style.display = 'none';
         document.getElementById('result-section').style.display = 'block';
-        
         document.getElementById('res-name').innerText = name;
         document.getElementById('res-score').innerText = score;
         document.getElementById('res-level').innerText = level;
@@ -377,4 +361,3 @@
 
 </body>
 </html>
-
