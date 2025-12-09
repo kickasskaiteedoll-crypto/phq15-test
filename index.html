@@ -3,209 +3,361 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PHQ-15 躯体症状自评量表</title>
+    <title>血管外科身心健康评估系统</title>
+    <script src="https://unpkg.com/bmob.js-sdk-v4@4.0.0/dist/Bmob-4.0.0.min.js"></script>
     <style>
-        /* 页面基础样式 - 仿移动端APP风格 */
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f5f7fa; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h1 { text-align: center; color: #2c3e50; font-size: 22px; margin-bottom: 20px; }
-        h2 { font-size: 18px; border-left: 4px solid #3498db; padding-left: 10px; margin-top: 30px; margin-bottom: 15px; }
+        :root {
+            --primary-color: #0056b3; /* 医疗深蓝 */
+            --accent-color: #00a8e8;  /* 亮蓝装饰 */
+            --bg-color: #f0f4f8;
+            --card-shadow: 0 8px 20px rgba(0,0,0,0.06);
+        }
         
-        /* 表单元素样式 */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--bg-color); margin: 0; padding: 0; color: #333; line-height: 1.6; }
+        
+        /* 顶部 Banner */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,86,179,0.3);
+        }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+        .header p { margin-top: 10px; opacity: 0.9; font-size: 14px; }
+
+        .container { max-width: 600px; margin: -20px auto 30px auto; padding: 0 15px; position: relative; z-index: 10; }
+        
+        /* 卡片通用样式 */
+        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--card-shadow); border-top: 4px solid transparent; }
+        .card-title { font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; display: flex; align-items: center; }
+        .card-title::before { content: ''; display: inline-block; width: 4px; height: 18px; background-color: var(--primary-color); margin-right: 10px; border-radius: 2px; }
+
+        /* 表单样式 */
         .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
-        input[type="text"], input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #555; }
+        .sub-label { font-size: 12px; color: #888; margin-bottom: 8px; font-weight: normal; }
         
-        /* 题目样式 */
-        .question-item { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        .question-text { font-size: 16px; margin-bottom: 10px; line-height: 1.5; }
-        .options { display: flex; justify-content: space-between; gap: 10px; }
-        .radio-label { flex: 1; text-align: center; background: #f0f2f5; padding: 10px 5px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; border: 1px solid transparent; }
+        input[type="text"], input[type="number"], input[type="tel"], select {
+            width: 100%; padding: 12px; border: 1px solid #e1e4e8; border-radius: 8px;
+            box-sizing: border-box; font-size: 16px; transition: border 0.3s; background: #fafafa;
+        }
+        input:focus { border-color: var(--accent-color); background: white; outline: none; }
+
+        /* 选项样式 */
+        .radio-group-vertical { display: flex; flex-direction: column; gap: 10px; }
+        .radio-option {
+            display: flex; align-items: center; padding: 10px 15px; 
+            border: 1px solid #eee; border-radius: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        .radio-option:hover { background-color: #f8fbff; }
+        .radio-option input { margin-right: 12px; transform: scale(1.2); }
+
+        /* PHQ-15 题目样式 */
+        .phq-item { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px dashed #eee; }
+        .phq-item:last-child { border-bottom: none; }
+        .phq-text { font-size: 16px; font-weight: 600; margin-bottom: 5px; }
+        .phq-desc { font-size: 13px; color: #7f8c8d; margin-bottom: 12px; }
         
-        /* 选中状态样式 */
-        input[type="radio"] { display: none; } /* 隐藏原生圆点 */
-        input[type="radio"]:checked + span { background-color: #e8f4fd; color: #3498db; border-color: #3498db; font-weight: bold; }
+        .phq-options { display: flex; gap: 8px; }
+        .phq-btn {
+            flex: 1; text-align: center; padding: 10px 2px; border: 1px solid #e0e0e0;
+            border-radius: 6px; font-size: 13px; cursor: pointer; background: white; color: #666;
+        }
+        /* 选中状态逻辑由JS控制class */
+        .phq-btn.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); font-weight: bold; }
+
+        /* 提交按钮 */
+        .submit-btn {
+            width: 100%; background: linear-gradient(to right, var(--primary-color), var(--accent-color));
+            color: white; padding: 16px; border: none; border-radius: 30px; font-size: 18px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(0, 86, 179, 0.3); margin-top: 10px;
+        }
+        .submit-btn:disabled { background: #ccc; box-shadow: none; }
+
+        /* 结果页 */
+        #result-section { display: none; text-align: center; padding-top: 40px; }
+        .score-circle {
+            width: 120px; height: 120px; background: white; border-radius: 50%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            margin: 0 auto 20px; border: 6px solid var(--primary-color); box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .score-num { font-size: 42px; font-weight: bold; color: var(--primary-color); line-height: 1; }
+        .score-label { font-size: 12px; color: #999; margin-top: 5px; }
+        .result-box { text-align: left; background: white; padding: 20px; border-radius: 12px; margin-top: 20px; }
         
-        /* 按钮样式 */
-        .btn { display: block; width: 100%; background-color: #3498db; color: white; padding: 14px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 30px; font-weight: bold; }
-        .btn:hover { background-color: #2980b9; }
-        
-        /* 结果区域样式 (默认隐藏) */
-        #result-section { display: none; text-align: center; }
-        .score-display { font-size: 48px; color: #3498db; font-weight: bold; margin: 20px 0; }
-        .level-tag { display: inline-block; padding: 5px 15px; border-radius: 20px; color: white; font-weight: bold; margin-bottom: 20px; }
-        .interpretation { text-align: left; background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 14px; line-height: 1.6; }
-        .hidden { display: none; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; margin-bottom: 5px; background: #eef2f7; color: #555; }
     </style>
 </head>
 <body>
 
-<div class="container" id="quiz-container">
-    <h1>PHQ-15 躯体症状自评量表</h1>
-    <p style="font-size:12px; color:#666; margin-bottom: 20px;">请根据过去4周内您身体受到以下问题困扰的程度进行评分。</p>
+<div class="header">
+    <h1>身心健康综合评估</h1>
+    <p>血管外科 · 辅助诊疗系统</p>
+</div>
 
-    <div id="baseline-info">
-        <h2>1. 基本信息</h2>
+<div class="container" id="main-form">
+    
+    <div class="card" style="border-top-color: #3498db;">
+        <div class="card-title">1. 基本信息</div>
         <div class="form-group">
-            <label>您的姓名/昵称</label>
-            <input type="text" id="username" placeholder="请输入">
+            <label>姓名 <span style="color:red">*</span></label>
+            <input type="text" id="username" placeholder="请输入您的姓名">
+        </div>
+        <div class="form-group" style="display: flex; gap: 15px;">
+            <div style="flex:1">
+                <label>年龄</label>
+                <input type="number" id="age" placeholder="岁">
+            </div>
+            <div style="flex:1">
+                <label>性别</label>
+                <select id="gender">
+                    <option value="male">男</option>
+                    <option value="female">女</option>
+                </select>
+            </div>
         </div>
         <div class="form-group">
-            <label>年龄</label>
-            <input type="number" id="age" placeholder="请输入">
-        </div>
-        <div class="form-group">
-            <label>性别</label>
-            <select id="gender">
-                <option value="male">男</option>
-                <option value="female">女</option>
-            </select>
+            <label>联系电话 <span style="color:red">*</span></label>
+            <div class="sub-label">仅用于医生回访，我们将严格保密</div>
+            <input type="tel" id="contact" placeholder="请输入手机号码">
         </div>
     </div>
 
-    <div id="questions-list">
-        <h2>2. 症状评估</h2>
+    <div class="card" style="border-top-color: #e67e22;">
+        <div class="card-title">2. 专科病史筛查</div>
+        
+        <div class="form-group">
+            <label>Q1. 您目前是否有明确的“四肢疼痛”？</label>
+            <div class="radio-group-vertical">
+                <label class="radio-option"><input type="radio" name="vas_pain" value="无痛"> 无明显疼痛</label>
+                <label class="radio-option"><input type="radio" name="vas_pain" value="间歇性跛行"> 走路时痛，休息缓解 (间歇性跛行)</label>
+                <label class="radio-option"><input type="radio" name="vas_pain" value="静息痛"> 休息不动时也痛 (静息痛)</label>
+                <label class="radio-option"><input type="radio" name="vas_pain" value="游走性疼痛"> 全身游走性/性质不定的疼痛</label>
+            </div>
         </div>
 
-    <button class="btn" onclick="calculateResult()">提交并查看结果</button>
+        <div class="form-group">
+            <label>Q2. 是否已确诊器质性血管疾病？</label>
+            <div class="sub-label">如动脉硬化闭塞、深静脉血栓、静脉曲张等</div>
+            <select id="vas_diagnosis">
+                <option value="">请选择...</option>
+                <option value="确诊阳性">是，医院已明确诊断</option>
+                <option value="检查阴性">否，检查过但未发现明显血管病变</option>
+                <option value="未检查">不清楚 / 尚未检查</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Q3. 近3年内是否有重大精神创伤？</label>
+            <div class="sub-label">如亲人离世、重病、严重意外、家庭变故等</div>
+            <div class="radio-group-vertical">
+                <label class="radio-option"><input type="radio" name="trauma" value="无"> 无</label>
+                <label class="radio-option"><input type="radio" name="trauma" value="有"> 有</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="border-top-color: #2ecc71;">
+        <div class="card-title">3. 近4周身体困扰程度 (PHQ-15)</div>
+        <p style="font-size:13px; color:#666; margin-bottom:20px;">请评估下列问题对您造成的**困扰程度**：</p>
+        
+        <div id="phq-list"></div>
+    </div>
+
+    <button id="submit-btn" class="submit-btn" onclick="submitData()">提交评估</button>
+    <p style="text-align: center; color: #999; font-size: 12px; margin-top: 15px;">本程序仅用于科研数据采集辅助，不作为绝对诊断依据</p>
 </div>
 
 <div class="container" id="result-section">
-    <h1>评估结果</h1>
-    <div style="font-size: 16px;">用户：<span id="res-name"></span></div>
-    
-    <div class="score-display" id="total-score">0</div>
-    <div id="level-badge" class="level-tag">待评估</div>
+    <div class="card">
+        <div class="score-circle">
+            <div class="score-num" id="res-score">0</div>
+            <div class="score-label">PHQ-15总分</div>
+        </div>
+        
+        <div style="text-align: center; margin-bottom: 20px;">
+            <span id="res-level" style="font-size: 20px; font-weight: bold; color: #333;"></span>
+        </div>
 
-    <div class="interpretation">
-        <p><strong>结果解读：</strong></p>
-        <p id="result-text">...</p>
-        <hr>
-        <p style="color: #999; font-size: 12px;">* 注意：本量表仅用于辅助筛查躯体化症状的严重程度，不能替代专业医生的临床诊断。如您感到身体明显不适或心理痛苦，请及时前往医院就诊。</p>
+        <div class="result-box" style="background: #f8fbff;">
+            <p><strong>尊敬的 <span id="res-name"></span>：</strong></p>
+            <p id="res-interpret" style="margin-bottom: 0;">结果解读加载中...</p>
+        </div>
+
+        <div class="result-box" style="margin-top: 15px; border-left: 4px solid #e67e22;">
+            <p style="font-size: 14px; font-weight: bold; color: #e67e22; margin: 0 0 5px 0;">💡 血管外科医生提示：</p>
+            <p style="font-size: 13px; color: #555; margin: 0;">
+                若您的血管检查结果正常（阴性），但 PHQ-15 分数较高（>10分），您的疼痛可能与躯体化障碍或情绪压力有关，而非血管堵塞加重。建议结合心理疏导治疗。
+            </p>
+        </div>
+
+        <button class="submit-btn" onclick="location.reload()" style="background: #95a5a6; margin-top: 30px;">关闭 / 下一位</button>
     </div>
-    
-    <button class="btn" onclick="location.reload()" style="background-color: #95a5a6;">重新测试</button>
 </div>
 
 <script>
-    // PHQ-15 题目列表
-    const questions = [
-        "1. 胃痛或肚子痛",
-        "2. 背痛",
-        "3. 胳膊、腿或关节痛（如膝盖、髋关节等）",
-        "4. 女性痛经或造成其他问题的月经（男性请选“没有”）",
-        "5. 头痛",
-        "6. 胸痛",
-        "7. 头晕",
-        "8. 晕倒（晕厥）",
-        "9. 感觉心跳很快或心慌",
-        "10. 呼吸急促",
-        "11. 性交时疼痛或出现其他问题",
-        "12. 便秘、大便稀或腹泻",
-        "13. 恶心、胀气或消化不良",
-        "14. 感觉疲倦或精力不足",
-        "15. 睡眠有问题（入睡困难或睡得太多）"
+    // ==========================================
+    // ⚠️ 请填入你的 Bmob 密钥
+    const SECRET_KEY = "6b0b4b7f90b157fe"; 
+    const API_KEY    = "2a78e07759c6b80cb36834e24de6271a";
+    // ==========================================
+
+    Bmob.initialize(SECRET_KEY, API_KEY);
+
+    // PHQ-15 题目数据（含增强描述）
+    const phqQuestions = [
+        { t: "1. 胃痛或腹痛", d: "包括胃胀、胃痉挛、隐痛等" },
+        { t: "2. 背痛", d: "腰背部酸痛、僵硬" },
+        { t: "3. 肢体或关节痛", d: "胳膊、腿、膝盖等处疼痛（请结合您是否有血管病变判断）" },
+        { t: "4. 女性痛经/月经问题", d: "男性请选“没有”" },
+        { t: "5. 头痛", d: "头部胀痛、紧箍感或偏头痛" },
+        { t: "6. 胸痛", d: "胸闷、胸口疼痛" },
+        { t: "7. 头晕", d: "昏沉感、天旋地转" },
+        { t: "8. 晕倒 (晕厥)", d: "意识暂时丧失" },
+        { t: "9. 心跳快或心慌", d: "静止时感觉心跳明显或心律不齐" },
+        { t: "10. 呼吸急促", d: "气短、感觉吸不进气" },
+        { t: "11. 性交疼痛或问题", d: "性生活相关的不适" },
+        { t: "12. 肠道问题", d: "便秘、腹泻或大便不成形" },
+        { t: "13. 消化问题", d: "恶心、胀气、消化不良" },
+        { t: "14. 疲倦感", d: "精力不足、浑身没劲" },
+        { t: "15. 睡眠问题", d: "入睡困难、早醒或睡得过多" }
     ];
 
-    // 初始化页面，生成题目
-    const questionContainer = document.getElementById('questions-list');
-    
-    questions.forEach((q, index) => {
+    // 渲染题目
+    const listEl = document.getElementById('phq-list');
+    phqQuestions.forEach((q, i) => {
         const div = document.createElement('div');
-        div.className = 'question-item';
+        div.className = 'phq-item';
         div.innerHTML = `
-            <div class="question-text">${q}</div>
-            <div class="options">
-                <label class="radio-label">
-                    <input type="radio" name="q${index}" value="0">
-                    <span>没有<br>(0分)</span>
-                </label>
-                <label class="radio-label">
-                    <input type="radio" name="q${index}" value="1">
-                    <span>有一些<br>(1分)</span>
-                </label>
-                <label class="radio-label">
-                    <input type="radio" name="q${index}" value="2">
-                    <span>很严重<br>(2分)</span>
-                </label>
+            <div class="phq-text">${q.t}</div>
+            <div class="phq-desc">${q.d}</div>
+            <div class="phq-options" id="q_group_${i}">
+                <div class="phq-btn" onclick="selectScore(${i}, 0, this)">没有 (0)</div>
+                <div class="phq-btn" onclick="selectScore(${i}, 1, this)">有一些 (1)</div>
+                <div class="phq-btn" onclick="selectScore(${i}, 2, this)">很严重 (2)</div>
             </div>
+            <input type="hidden" id="val_${i}" value="-1">
         `;
-        questionContainer.appendChild(div);
+        listEl.appendChild(div);
     });
 
-    function calculateResult() {
-        // 1. 获取基线信息
-        const name = document.getElementById('username').value;
-        const age = document.getElementById('age').value;
+    // 选中样式处理
+    function selectScore(qIndex, score, btnElement) {
+        // 清除该题所有按钮样式
+        const group = document.getElementById(`q_group_${qIndex}`);
+        const btns = group.getElementsByClassName('phq-btn');
+        for(let b of btns) b.classList.remove('active');
         
-        if(!name || !age) {
-            alert("请先填写基本信息（姓名和年龄）");
-            window.scrollTo(0, 0);
-            return;
-        }
+        // 激活当前按钮
+        btnElement.classList.add('active');
+        // 赋值隐藏域
+        document.getElementById(`val_${qIndex}`).value = score;
+    }
 
-        // 2. 计算分数
+    function getRadioValue(name) {
+        const radios = document.getElementsByName(name);
+        for (let r of radios) { if (r.checked) return r.value; }
+        return "";
+    }
+
+    function submitData() {
+        // 1. 收集基线数据
+        const name = document.getElementById('username').value.trim();
+        const age = document.getElementById('age').value;
+        const gender = document.getElementById('gender').value;
+        const contact = document.getElementById('contact').value.trim();
+        
+        // 2. 收集血管专科数据
+        const vasPain = getRadioValue('vas_pain');
+        const vasDiagnosis = document.getElementById('vas_diagnosis').value;
+        const trauma = getRadioValue('trauma');
+
+        // 验证必填
+        if(!name || !age || !contact) { alert("请填写完整的个人信息（姓名、年龄、电话）"); return; }
+        if(!vasPain || !vasDiagnosis || !trauma) { alert("请完成第2部分：专科病史筛查"); return; }
+
+        // 3. 计算 PHQ-15 分数
         let totalScore = 0;
-        let allAnswered = true;
-
-        for (let i = 0; i < questions.length; i++) {
-            const radios = document.getElementsByName(`q${i}`);
-            let val = null;
-            for (const radio of radios) {
-                if (radio.checked) {
-                    val = parseInt(radio.value);
-                    break;
-                }
-            }
-            if (val === null) {
-                allAnswered = false;
-                break;
-            }
+        let scoreDetails = [];
+        for(let i=0; i<phqQuestions.length; i++) {
+            const val = parseInt(document.getElementById(`val_${i}`).value);
+            if(val === -1) { alert(`第3部分第 ${i+1} 题未作答`); return; }
             totalScore += val;
+            scoreDetails.push(val);
         }
 
-        if (!allAnswered) {
-            alert("您还有题目未完成，请回答所有问题。");
-            return;
-        }
+        // 按钮加载态
+        const btn = document.getElementById('submit-btn');
+        btn.innerText = "数据上传中...";
+        btn.disabled = true;
 
-        // 3. 结果解读逻辑
+        // 结果分级
         let level = "";
-        let color = "";
-        let text = "";
-
-        if (totalScore <= 4) {
-            level = "无或轻微";
-            color = "#2ecc71"; // 绿色
-            text = "您的躯体症状困扰程度很低，属于正常范围。";
-        } else if (totalScore <= 9) {
-            level = "轻度";
-            color = "#f1c40f"; // 黄色
-            text = "您有轻度的躯体症状困扰。建议关注作息调整，保持心情舒畅。";
-        } else if (totalScore <= 14) {
-            level = "中度";
-            color = "#e67e22"; // 橙色
-            text = "您有中度的躯体症状困扰。这些症状可能正在影响您的生活质量，建议寻求心理咨询或全科医生的建议。";
-        } else {
-            level = "重度";
-            color = "#e74c3c"; // 红色
-            text = "您有重度的躯体症状困扰。这可能与焦虑或抑郁情绪高度相关，强烈建议前往医院进行专业评估和诊疗。";
+        let interpret = "";
+        if (totalScore <= 4) { 
+            level = "无或轻微"; 
+            interpret = "躯体症状困扰极低，通常不需要临床干预。";
+        } else if (totalScore <= 9) { 
+            level = "轻度"; 
+            interpret = "存在轻度的躯体不适，建议保持良好的作息，若症状持续可咨询医生。";
+        } else if (totalScore <= 14) { 
+            level = "中度"; 
+            interpret = "存在中度的躯体症状困扰，可能会影响日常生活。建议您与医生讨论是否需要药物或心理干预。";
+        } else { 
+            level = "重度"; 
+            interpret = "存在重度的躯体症状困扰。这与焦虑抑郁情绪高度相关，强烈建议进行身心联合诊疗。";
         }
 
-        // 4. 切换显示
-        document.getElementById('quiz-container').style.display = 'none';
+      // 4. 上传 Bmob
+        // 修正：表名保持 VascularPHQ，列名去掉下划线，改用驼峰命名
+        const query = Bmob.Query('VascularPHQ'); 
+        
+        query.set("name", name);
+        query.set("age", parseInt(age));
+        query.set("gender", gender);
+        query.set("contact", contact);
+        
+        // --- 以下是修改了列名的地方 ---
+        query.set("vasPainType", vasPain);      // 原 vas_pain_type
+        query.set("vasDiagnosis", vasDiagnosis); // 原 vas_diagnosis
+        query.set("traumaHistory", trauma);      // 原 trauma_history
+        query.set("totalScore", totalScore);     // 原 total_score
+        query.set("scoreLevel", level);          // 原 score_level
+        query.set("rawScores", scoreDetails.join(",")); // 原 raw_scores
+        // ---------------------------
+
+        query.save().then(res => {
+            // 成功回调
+            showResultPage(name, totalScore, level, interpret);
+        }).catch(err => {
+            console.log(err);
+            // 即使报错提示，也在控制台打印具体错误，方便调试
+            alert("数据上传遇到问题 (Error: " + err.code + ")。请检查Bmob后台列名是否和代码一致。");
+            // 依然显示结果给患者看，避免卡住
+            showResultPage(name, totalScore, level, interpret);
+        });
+    }
+
+    function showResultPage(name, score, level, interpret) {
+        document.getElementById('main-form').style.display = 'none';
+        document.querySelector('.header').style.display = 'none'; // 隐藏头部让界面更干净
         document.getElementById('result-section').style.display = 'block';
         
         document.getElementById('res-name').innerText = name;
-        document.getElementById('total-score').innerText = totalScore;
+        document.getElementById('res-score').innerText = score;
+        document.getElementById('res-level').innerText = level;
+        document.getElementById('res-interpret').innerText = interpret;
         
-        const badge = document.getElementById('level-badge');
-        badge.innerText = level;
-        badge.style.backgroundColor = color;
+        // 根据分数变色
+        const circle = document.querySelector('.score-circle');
+        if(score <= 4) circle.style.borderColor = "#2ecc71";
+        else if(score <= 9) circle.style.borderColor = "#f1c40f";
+        else if(score <= 14) circle.style.borderColor = "#e67e22";
+        else circle.style.borderColor = "#e74c3c";
         
-        document.getElementById('result-text').innerText = text;
-        
-        // 自动回到顶部
         window.scrollTo(0, 0);
     }
 </script>
