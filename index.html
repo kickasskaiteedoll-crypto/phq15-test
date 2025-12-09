@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHQ-15 躯体症状自评量表</title>
+    <style>
+        /* 页面基础样式 - 仿移动端APP风格 */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f5f7fa; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #2c3e50; font-size: 22px; margin-bottom: 20px; }
+        h2 { font-size: 18px; border-left: 4px solid #3498db; padding-left: 10px; margin-top: 30px; margin-bottom: 15px; }
+        
+        /* 表单元素样式 */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
+        input[type="text"], input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        
+        /* 题目样式 */
+        .question-item { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .question-text { font-size: 16px; margin-bottom: 10px; line-height: 1.5; }
+        .options { display: flex; justify-content: space-between; gap: 10px; }
+        .radio-label { flex: 1; text-align: center; background: #f0f2f5; padding: 10px 5px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; border: 1px solid transparent; }
+        
+        /* 选中状态样式 */
+        input[type="radio"] { display: none; } /* 隐藏原生圆点 */
+        input[type="radio"]:checked + span { background-color: #e8f4fd; color: #3498db; border-color: #3498db; font-weight: bold; }
+        
+        /* 按钮样式 */
+        .btn { display: block; width: 100%; background-color: #3498db; color: white; padding: 14px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 30px; font-weight: bold; }
+        .btn:hover { background-color: #2980b9; }
+        
+        /* 结果区域样式 (默认隐藏) */
+        #result-section { display: none; text-align: center; }
+        .score-display { font-size: 48px; color: #3498db; font-weight: bold; margin: 20px 0; }
+        .level-tag { display: inline-block; padding: 5px 15px; border-radius: 20px; color: white; font-weight: bold; margin-bottom: 20px; }
+        .interpretation { text-align: left; background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 14px; line-height: 1.6; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="quiz-container">
+    <h1>PHQ-15 躯体症状自评量表</h1>
+    <p style="font-size:12px; color:#666; margin-bottom: 20px;">请根据过去4周内您身体受到以下问题困扰的程度进行评分。</p>
+
+    <div id="baseline-info">
+        <h2>1. 基本信息</h2>
+        <div class="form-group">
+            <label>您的姓名/昵称</label>
+            <input type="text" id="username" placeholder="请输入">
+        </div>
+        <div class="form-group">
+            <label>年龄</label>
+            <input type="number" id="age" placeholder="请输入">
+        </div>
+        <div class="form-group">
+            <label>性别</label>
+            <select id="gender">
+                <option value="male">男</option>
+                <option value="female">女</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="questions-list">
+        <h2>2. 症状评估</h2>
+        </div>
+
+    <button class="btn" onclick="calculateResult()">提交并查看结果</button>
+</div>
+
+<div class="container" id="result-section">
+    <h1>评估结果</h1>
+    <div style="font-size: 16px;">用户：<span id="res-name"></span></div>
+    
+    <div class="score-display" id="total-score">0</div>
+    <div id="level-badge" class="level-tag">待评估</div>
+
+    <div class="interpretation">
+        <p><strong>结果解读：</strong></p>
+        <p id="result-text">...</p>
+        <hr>
+        <p style="color: #999; font-size: 12px;">* 注意：本量表仅用于辅助筛查躯体化症状的严重程度，不能替代专业医生的临床诊断。如您感到身体明显不适或心理痛苦，请及时前往医院就诊。</p>
+    </div>
+    
+    <button class="btn" onclick="location.reload()" style="background-color: #95a5a6;">重新测试</button>
+</div>
+
+<script>
+    // PHQ-15 题目列表
+    const questions = [
+        "1. 胃痛或肚子痛",
+        "2. 背痛",
+        "3. 胳膊、腿或关节痛（如膝盖、髋关节等）",
+        "4. 女性痛经或造成其他问题的月经（男性请选“没有”）",
+        "5. 头痛",
+        "6. 胸痛",
+        "7. 头晕",
+        "8. 晕倒（晕厥）",
+        "9. 感觉心跳很快或心慌",
+        "10. 呼吸急促",
+        "11. 性交时疼痛或出现其他问题",
+        "12. 便秘、大便稀或腹泻",
+        "13. 恶心、胀气或消化不良",
+        "14. 感觉疲倦或精力不足",
+        "15. 睡眠有问题（入睡困难或睡得太多）"
+    ];
+
+    // 初始化页面，生成题目
+    const questionContainer = document.getElementById('questions-list');
+    
+    questions.forEach((q, index) => {
+        const div = document.createElement('div');
+        div.className = 'question-item';
+        div.innerHTML = `
+            <div class="question-text">${q}</div>
+            <div class="options">
+                <label class="radio-label">
+                    <input type="radio" name="q${index}" value="0">
+                    <span>没有<br>(0分)</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="q${index}" value="1">
+                    <span>有一些<br>(1分)</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="q${index}" value="2">
+                    <span>很严重<br>(2分)</span>
+                </label>
+            </div>
+        `;
+        questionContainer.appendChild(div);
+    });
+
+    function calculateResult() {
+        // 1. 获取基线信息
+        const name = document.getElementById('username').value;
+        const age = document.getElementById('age').value;
+        
+        if(!name || !age) {
+            alert("请先填写基本信息（姓名和年龄）");
+            window.scrollTo(0, 0);
+            return;
+        }
+
+        // 2. 计算分数
+        let totalScore = 0;
+        let allAnswered = true;
+
+        for (let i = 0; i < questions.length; i++) {
+            const radios = document.getElementsByName(`q${i}`);
+            let val = null;
+            for (const radio of radios) {
+                if (radio.checked) {
+                    val = parseInt(radio.value);
+                    break;
+                }
+            }
+            if (val === null) {
+                allAnswered = false;
+                break;
+            }
+            totalScore += val;
+        }
+
+        if (!allAnswered) {
+            alert("您还有题目未完成，请回答所有问题。");
+            return;
+        }
+
+        // 3. 结果解读逻辑
+        let level = "";
+        let color = "";
+        let text = "";
+
+        if (totalScore <= 4) {
+            level = "无或轻微";
+            color = "#2ecc71"; // 绿色
+            text = "您的躯体症状困扰程度很低，属于正常范围。";
+        } else if (totalScore <= 9) {
+            level = "轻度";
+            color = "#f1c40f"; // 黄色
+            text = "您有轻度的躯体症状困扰。建议关注作息调整，保持心情舒畅。";
+        } else if (totalScore <= 14) {
+            level = "中度";
+            color = "#e67e22"; // 橙色
+            text = "您有中度的躯体症状困扰。这些症状可能正在影响您的生活质量，建议寻求心理咨询或全科医生的建议。";
+        } else {
+            level = "重度";
+            color = "#e74c3c"; // 红色
+            text = "您有重度的躯体症状困扰。这可能与焦虑或抑郁情绪高度相关，强烈建议前往医院进行专业评估和诊疗。";
+        }
+
+        // 4. 切换显示
+        document.getElementById('quiz-container').style.display = 'none';
+        document.getElementById('result-section').style.display = 'block';
+        
+        document.getElementById('res-name').innerText = name;
+        document.getElementById('total-score').innerText = totalScore;
+        
+        const badge = document.getElementById('level-badge');
+        badge.innerText = level;
+        badge.style.backgroundColor = color;
+        
+        document.getElementById('result-text').innerText = text;
+        
+        // 自动回到顶部
+        window.scrollTo(0, 0);
+    }
+</script>
+
+</body>
+</html>
